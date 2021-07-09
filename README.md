@@ -5,6 +5,8 @@
 
 Detect if code is running inside a virtual machine.
 
+> Only works on x86 and x86-64.
+
 ## How does it work
 
 Measure average cpu cycles when calling [`cpuid`](https://en.wikipedia.org/wiki/CPUID) and compare to a threshold, if the value is high assume code is running inside a VM.
