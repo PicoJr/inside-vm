@@ -2,6 +2,8 @@
 //!
 //! Detect if code is running inside a virtual machine.
 //!
+//! > Only works on x86 and x86-64.
+//!
 //! ## How does it work
 //!
 //! Measure average cpu cycles when calling [`cpuid`](https://en.wikipedia.org/wiki/CPUID) and compare to a threshold, if the value is high assume code is running inside a VM.
@@ -57,12 +59,15 @@ pub fn cpuid_cycle_count_avg(low: usize, samples: usize, high: usize) -> u64 {
     for _ in 0..(low + samples + high) {
         unsafe {
             tsc1 = _rdtsc();
-            // call to __cpuid would be optimized away by the compiler
-            // if it were not for the hack used later cf HACK
             cpuid = __cpuid(0);
             tsc2 = _rdtsc();
         }
         cycles.push(tsc2 - tsc1);
+    }
+    unsafe {
+        // call to __cpuid would be optimized away by the compiler in release mode
+        // if it were not for this call
+        std::ptr::read_volatile(&cpuid);
     }
 
     // remove low and high outliers, keep samples
@@ -71,8 +76,7 @@ pub fn cpuid_cycle_count_avg(low: usize, samples: usize, high: usize) -> u64 {
 
     // compute average cycle count without outliers, make sure we do not divide by zero
     let avg = cycles_without_outliers.iter().sum::<u64>() / std::cmp::max(samples as u64, 1);
-    // HACK: use __cpuid return value in order to prevent compiler from optimizing __cpuid call away
-    avg + (cpuid.eax as u64 % 2)
+    avg
 }
 
 /// Detect if inside vm by computing cpuid cpu cycles average and compare to `threshold`.
